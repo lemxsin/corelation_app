@@ -1,6 +1,8 @@
-from PyQt5.QtWidgets import QFileDialog, QMessageBox
 import numpy as np
 import pandas as pd
+from PyQt5.QtWidgets import QFileDialog
+
+
 
 class Controller:
     def __init__(self, model, view):
@@ -11,6 +13,7 @@ class Controller:
         self.view.clear_btn.clicked.connect(self.clear_data)
         self.view.calc_btn.clicked.connect(self.calculate_correlations)
         self.view.table.cellChanged.connect(self.table_data_changed)
+        self.view.save_btn.clicked.connect(self.save_result)
 
     def load_csv(self):
         """Открывает диалог выбора файла для загрузки CSV и загружает данные в модель"""
@@ -60,7 +63,6 @@ class Controller:
             except Exception as e:
                 self.view.show_error(f"Ошибка загрузки файла! {str(e)}")
    
-
     def clear_data(self):
             self.model.set_data([], [])
             self.update_view()
@@ -77,13 +79,70 @@ class Controller:
                      if x_item and y_item and x_item.text() and y_item.text():
                          x_data.append(float(x_item.text()))
                          y_data.append(float(y_item.text()))
-
+ 
                 self.model.set_data(x_data, y_data)
                 self.view.update_plot(*self.model.get_data()) 
                        
             except ValueError:
                 self.view.show_error_message(f"Некоректные данные в таблице!")
 
+    def save_result(self):
+         options = QFileDialog.Options()
+         file_name, _ = QFileDialog.getSaveFileName(
+              self.view,
+              "Сохранить результаты",
+              "",
+              "Excel Files (*.xlsx)",
+              options=options
+         )
+
+         if not file_name:
+              return
+         
+         try:
+              writer = pd.ExcelWriter(file_name, engine='xlsxwriter')
+
+              data_df = pd.DataFrame({
+                   'X': self.model.x_data,
+                   'Y': self.model.y_data
+              })
+              data_df.to_excel(writer, sheet_name="Данные", index=False)
+
+              correlation = self.model.calculate_correlations()
+              results = pd.DataFrame({
+                   "Метод": ["Пирсон", "Спирмен", "Кендалл"],
+                   "Корреляция" : [
+                        correlation['pearson'][0],
+                        correlation['spearman'][0],
+                        correlation['kendall'][0]
+                   ],
+                   'p-value': [
+                        correlation['pearson'][1],
+                        correlation['spearman'][1],
+                        correlation["kendall"][1]
+                   ]
+              })
+              results.to_excel(writer, sheet_name="Результаты", index=False)
+
+              workbook = writer.book
+              worksheet = workbook.add_worksheet('График')
+
+              buf = self.view.get_figure_image()
+            #   self.figure.savefig(buf, format='png', dpi=300)
+            #   buf.seek(0)
+
+              worksheet.insert_image("B2", 'plot.png', {'image_data': buf})
+
+
+              for sheet in writer.sheets:
+                   writer.sheets[sheet].set_column('A:C', 15)
+
+              writer.close()
+              self.view.show_message("Файл успешно сохранен!")
+
+         except Exception as e:
+              self.view.show_error(f"Ошибка при сохранении файла: {str(e)}")
+              
     def calculate_correlations(self):
          """Расчет корреляций"""
          try:

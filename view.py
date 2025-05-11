@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from io import BytesIO
 
 class CorrelationView(QMainWindow):
     def __init__(self):
@@ -27,10 +28,12 @@ class CorrelationView(QMainWindow):
         self.load_btn = QPushButton("Загрузить CSV")
         self.clear_btn = QPushButton("Очистить")
         self.calc_btn = QPushButton("Рассчитать")
+        self.save_btn = QPushButton("Сохранить в Excel")
 
         control_layout.addWidget(self.load_btn)
         control_layout.addWidget(self.clear_btn)
         control_layout.addWidget(self.calc_btn)
+        control_layout.addWidget(self.save_btn)
 
         self.layout1.addLayout(control_layout)
 
@@ -94,3 +97,14 @@ class CorrelationView(QMainWindow):
     def show_error(self, message):
         """Показ ошибки"""
         self.results_label.setText(f"Ошибка: {message}")    
+    
+    def get_figure_image(self):
+        """Возвращает изображение графика в виде bytes"""
+        buf = BytesIO()
+        self.figure.savefig(buf, format='png', dpi=300)
+        buf.seek(0)
+        return buf
+    
+    def show_message(self, message):
+        self.results_label.setText(message)
+        
